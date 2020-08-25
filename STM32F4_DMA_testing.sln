@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30225.117
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "STM32F4_DMA_testing", "STM32F4_DMA_testing.vcxproj", "{2AA610FC-7839-44CB-9FDC-0AEC8FBCF824}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|VisualGDB = Debug|VisualGDB
+		Release|VisualGDB = Release|VisualGDB
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2AA610FC-7839-44CB-9FDC-0AEC8FBCF824}.Debug|VisualGDB.ActiveCfg = Debug|VisualGDB
+		{2AA610FC-7839-44CB-9FDC-0AEC8FBCF824}.Debug|VisualGDB.Build.0 = Debug|VisualGDB
+		{2AA610FC-7839-44CB-9FDC-0AEC8FBCF824}.Release|VisualGDB.ActiveCfg = Release|VisualGDB
+		{2AA610FC-7839-44CB-9FDC-0AEC8FBCF824}.Release|VisualGDB.Build.0 = Release|VisualGDB
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E7F78BC2-B5B3-4DE1-9D8D-B3268C51F2A5}
+	EndGlobalSection
+EndGlobal
