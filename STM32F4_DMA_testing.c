@@ -9,6 +9,7 @@
 #include <stm32f4xx_ll_fmc.h>
 #include <stm32f4xx_ll_spi.h>
 #include <stm32f4xx_ll_dma.h>
+#include <stm32f4xx_ll_i2c.h>
 #include "stdarg.h"
 #include "stdlib.h"
 #include "stdio.h"
@@ -38,6 +39,7 @@
 #define external_start_addr       *(__IO uint16_t*)(EXTERNAL_SDRAM_BANK_ADDR )
 
 //DMA
+#define buffLen 100
 void initDMA(void);
 
 //FMC
@@ -54,8 +56,10 @@ void CL_printMsg_init_Default(void);
 void CL_printMsg(char *msg, ...);
 void initLed(void);
 void blinkLed(uint16_t times, uint16_t del);
-uint16_t internal_buff[100]; 
 
+uint16_t internal_buff[buffLen]; 
+uint16_t internal_buff2[100];
+uint8_t i2c_RX_buff[10]; 
 int main(void)
 {
 	setClockTo180();
@@ -64,41 +68,91 @@ int main(void)
 	
 	init_SDRAM(); 
 	FMC_SDRAM_WriteProtection_Disable(FMC_Bank5_6, FMC_SDRAM_BANK2);
-//	clear_SDRAM(0x001F);
-	for (int counter = 0; counter < 100; counter++)
-	{
-		CL_printMsg("%d\n", *(__IO uint16_t*)(EXTERNAL_SDRAM_BANK_ADDR + 2*counter));
-		
-	}
+	clear_SDRAM(0x0000);
+	
 	
 	for (int counter = 0; counter < 100; counter++)
 	{
 		internal_buff[counter] =counter;
-	}
-	for (int counter = 0; counter < 100; counter++)
-	{
 		CL_printMsg("%d\n", internal_buff[counter]);
 	}
+	
 	CL_printMsg("Internal Buff init done\n");
 	
 	initDMA();
-	LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_0);
+	LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_0);
+	//LL_mDelay(10);
 	CL_printMsg("SDRAM DMA transfer done\n");
 	for (int counter = 0; counter < 100; counter++)
 	{
 		CL_printMsg("%d\n", *(__IO uint16_t*)(EXTERNAL_SDRAM_BANK_ADDR + 2*counter));
+		//CL_printMsg("%d\n", internal_buff2[counter]);
 		
 	}
 	
-	
+
 	for (;;)
 	{
 	
 	}
+	
 }
+void init_i2c(void)
+{
+	//-----------clocks
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C3); 
+
+	//not remapped
+	//  [PA8]   --> I2C1_SCL --> AF4
+	//  [PC9]   --> I2C1_SDA --> AF4
+	LL_GPIO_InitTypeDef gpio;	
+	gpio.Pin = LL_GPIO_PIN_8 ;
+	gpio.Mode = LL_GPIO_MODE_ALTERNATE;
+	gpio.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+	gpio.OutputType = LL_GPIO_OUTPUT_OPENDRAIN;
+	gpio.Alternate = LL_GPIO_AF_4;
+	LL_GPIO_Init(GPIOA, &gpio);
+	
+	gpio.Pin = LL_GPIO_PIN_9;
+	LL_GPIO_Init(GPIOC, &gpio);
+
+	//I2C3
+	LL_I2C_InitTypeDef i2c;	
+	LL_I2C_StructInit(&i2c);
+	i2c.ClockSpeed = 100000; // 100Khz in Hz
+	i2c.TypeAcknowledge = LL_I2C_ACK;	
+	LL_I2C_Init(I2C1, &i2c);	
+	
+	LL_I2C_EnableDMAReq_RX(I2C1);
+	
+	LL_I2C_Enable(I2C1);
+	
+	//DMA 1 Stream 2 : Channel 3 I2C3_RX
+
+		RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
+		LL_DMA_InitTypeDef dma;
+		LL_DMA_StructInit(&dma);
+		dma.Direction				= LL_DMA_DIRECTION_PERIPH_TO_MEMORY;
+		dma.PeriphOrM2MSrcAddress	= (uint32_t )&(I2C3->DR);
+		dma.PeriphOrM2MSrcDataSize	= LL_DMA_MDATAALIGN_BYTE; 
+		dma.PeriphOrM2MSrcIncMode	= LL_DMA_PERIPH_NOINCREMENT;
+		dma.MemoryOrM2MDstAddress	= (uint32_t )&(i2c_RX_buff);
+		dma.MemoryOrM2MDstDataSize	= LL_DMA_MDATAALIGN_BYTE;
+		dma.MemoryOrM2MDstIncMode	= LL_DMA_MEMORY_INCREMENT;	
+		dma.Channel					=  LL_DMA_CHANNEL_3;
+		dma.NbData					= buffLen * 2;  //uint16_t internal_buff[100]  why 200?
+		DMA1_Stream2->CR |= DMA_SxCR_TCIE; //enable Transfer Complete interrutp
+		NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+	
+		LL_DMA_Init(DMA1,LL_DMA_STREAM_2, &dma);
+	
+	
+	
+}//-------------------------------------------------------------------
 void initDMA(void)
 {
-	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
+	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	LL_DMA_InitTypeDef dma;
 	LL_DMA_StructInit(&dma);
 	dma.Direction = LL_DMA_DIRECTION_MEMORY_TO_MEMORY;
@@ -108,15 +162,24 @@ void initDMA(void)
 	dma.MemoryOrM2MDstAddress	= EXTERNAL_SDRAM_BANK_ADDR;
 	dma.MemoryOrM2MDstDataSize	= LL_DMA_MDATAALIGN_HALFWORD;
 	dma.MemoryOrM2MDstIncMode	= LL_DMA_MEMORY_INCREMENT;	
-	dma.NbData = 100;
-	LL_DMA_Init(DMA1,LL_DMA_STREAM_0, &dma);
+	
+	dma.NbData = buffLen * 2;  //uint16_t internal_buff[100]  why 200?
+	DMA2_Stream0->CR |= DMA_SxCR_TCIE; //enable Transfer Complete interrutp
+	NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+	
+	LL_DMA_Init(DMA2,LL_DMA_STREAM_0, &dma);
 }
-
+void DMA2_Stream0_IRQHandler(void)
+{
+	LL_DMA_ClearFlag_TC0(DMA2);
+	CL_printMsg("Transfer Complete\n");
+	
+}
 void clear_SDRAM(uint16_t value)
 {
 	for (int counter = 0x00; counter < EXTERNAL_SDRAM_SIZE; counter++)
 	{
-		*(__IO uint16_t*)(EXTERNAL_SDRAM_BANK_ADDR + counter) = (uint16_t)value;
+		*(__IO uint16_t*)(EXTERNAL_SDRAM_BANK_ADDR + (counter)) = (uint16_t)value;
 	}
 }//--------------------------------------------------------------------------------
 void memCheck(void)

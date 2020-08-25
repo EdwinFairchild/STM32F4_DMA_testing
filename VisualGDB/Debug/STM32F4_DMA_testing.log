@@ -1,6 +1,6 @@
 ﻿  STM32F4_DMA_testing.c
   Linking VisualGDB/Debug/STM32F4_DMA_testing...
   ------------------- Memory utilization report -------------------
-  Used FLASH: 11KB out of 2048KB (0%) [-64]
-  Used SRAM: 360 bytes out of 192KB (0%)
+  Used FLASH: 11KB out of 2048KB (0%) [-4]
+  Used SRAM: 560 bytes out of 192KB (0%)
   Used CCMRAM: 0 bytes out of 64KB (0%)
